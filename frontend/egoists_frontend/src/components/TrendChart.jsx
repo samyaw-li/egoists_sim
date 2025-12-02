@@ -1,5 +1,4 @@
 import "../styles/TrendChart.css";
-
 import {
   LineChart,
   Line,
@@ -11,7 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-function TrendChart({ results }) {
+function TrendChart({ results, showHalfway }) {
   if (!results.length) return null;
 
   return (
@@ -23,25 +22,35 @@ function TrendChart({ results }) {
           <XAxis dataKey="round" label={{ value: "Round", position: "insideBottom" }} />
           <YAxis
             label={{
-              value: "Average Payoff",
+              value: "Fraction",
               angle: -90,
               position: "insideLeft",
             }}
+            domain={[0, 1]}
+            tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`}
           />
-          <Tooltip />
+          <Tooltip formatter={(value) => `${(value * 100).toFixed(1)}%`} />
           <Legend />
           <Line
             type="monotone"
-            dataKey="cumulative_altruist"
+            dataKey="propC"
             stroke="#007bff"
-            name="Altruists (Cumulative)"
+            name="% Altruists"
           />
           <Line
             type="monotone"
-            dataKey="cumulative_egoist"
+            dataKey="propD"
             stroke="#ff0000"
-            name="Egoists (Cumulative)"
+            name="% Egoists"
           />
+          {showHalfway && (
+            <Line
+              type="monotone"
+              dataKey="propH"
+              stroke="#00cc00"
+              name="% Halfway"
+            />
+          )}
         </LineChart>
       </ResponsiveContainer>
     </div>

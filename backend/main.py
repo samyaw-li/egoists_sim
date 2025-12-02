@@ -1,7 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from simulation import run_simulation_round
+from simulation_ps115d import create_population, simulate_round_ps115d
 
 app = FastAPI()
 
@@ -13,30 +12,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class SimulationRequest(BaseModel):
-    num_players: int
-    altruist_ratio: float
-    game_type: str
-    custom_payoff: dict | None = None
+population_ps = None
+history_ps = []
 
-simulation_history = []
 
-@app.post("/simulate_round")
-def simulate_round(request: SimulationRequest):
-    try:
-        result, updated_history = run_simulation_round(
-            request.num_players,
-            request.altruist_ratio,
-            request.game_type,
-            request.custom_payoff,
-            simulation_history
-        )
-        simulation_history[:] = updated_history  # update in-place
-        return {"round_result": result, "history": simulation_history}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.post("/ps115d/reset")
+def reset_ps115d():
+    global population_ps, history_ps
+    population_ps = create_population(120)
+    history_ps = []
+    return {"status": "reset"}
 
-@app.post("/reset")
-def reset_simulation():
-    simulation_history.clear()
-    return {"message": "Simulation history reset successfully."}
+
+@app.post("/ps115d/simulate")
+def simulate_ps115d(mode: str = "BASIC"):
+    global population_ps, history_ps
+    if population_ps is None:
+        population_ps = create_population(120)
+
+    population_ps, summary = simulate_round_ps115d(population_ps, mode)
+
+    # Add round number
+    round_number = len(history_ps) + 1
+    summary["round"] = round_number
+    summary["game"] = mode
+    history_ps.append(summary)
+
+    return {"round_result": summary, "history": history_ps}

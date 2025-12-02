@@ -1,6 +1,6 @@
 import "../styles/ResultsTable.css";
 
-function ResultsTable({ results }) {
+function ResultsTable({ results, showHalfway }) {
   if (!results.length) return <p>No results yet.</p>;
 
   return (
@@ -10,18 +10,18 @@ function ResultsTable({ results }) {
         <thead>
           <tr>
             <th>Round</th>
-            <th>Game</th>
-            <th>Altruists</th>
-            <th>Egoists</th>
+            <th>% Altruists (Cooperators)</th>
+            <th>% Egoists (Defectors)</th>
+            {showHalfway && <th>% Halfway</th>}
           </tr>
         </thead>
         <tbody>
-          {results.map((r) => (
-            <tr key={r.round}>
+          {results.map((r, idx) => (
+            <tr key={idx}>
               <td>{r.round}</td>
-              <td>{r.game}</td>
-              <td>{r.altruist_mean.toFixed(2)}</td>
-              <td>{r.egoist_mean.toFixed(2)}</td>
+              <td>{(r.propC * 100).toFixed(1)}</td>
+              <td>{(r.propD * 100).toFixed(1)}</td>
+              {showHalfway && <td>{(r.propH * 100).toFixed(1)}</td>}
             </tr>
           ))}
         </tbody>

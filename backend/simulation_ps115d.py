@@ -1,151 +1,186 @@
 import random
 
-# --- PLAYER CREATION --------------------------------------------------------
+# --------------------------------------------------------------------
+# TYPE MAPPING
+# --------------------------------------------------------------------
+# keep 10 → give 0  → Egoist
+# keep 5  → give 5  → Halfway House
+# keep 0  → give 10 → Altruist
 
-def create_players_ps115d(num_players, altruist_ratio, halfway_ratio=0.0):
+TYPE_TO_GIVE = {
+    "egoist": 0,
+    "halfway": 5,
+    "altruist": 10,
+}
+
+TYPE_LIST = ["altruist", "halfway", "egoist"]
+
+# Payoffs range is [0, 55]
+MAX_PAYOFF = 55
+
+# --------------------------------------------------------------------
+# Create population (120 players by default)
+# --------------------------------------------------------------------
+def create_population(n=120, ratios=None):
     """
-    Create players of 3 types:
-    - altruist: gives 10 (keeps 0)
-    - halfway: gives 5 (keeps 5)
-    - egoist: gives 0 (keeps 10)
+    ratios = dict(altruist=?, halfway=?, egoist=?)
     """
-    players = []
-    num_altruists = int(num_players * altruist_ratio)
-    num_halfway = int(num_players * halfway_ratio)
-    num_egoists = num_players - num_altruists - num_halfway
+    if ratios is None:
+        ratios = {"altruist": 0.33, "halfway": 0.34, "egoist": 0.33}
 
-    # Build type list
-    types = (
-        ["altruist"] * num_altruists +
-        ["halfway"] * num_halfway +
-        ["egoist"] * num_egoists
-    )
-    random.shuffle(types)
+    population = []
+    counts = {t: int(ratios[t] * n) for t in TYPE_LIST}
 
-    for i, t in enumerate(types):
-        if t == "altruist":
-            choice = 10
-        elif t == "halfway":
-            choice = 5
-        else:
-            choice = 0
+    # Fix rounding errors
+    while sum(counts.values()) < n:
+        counts["egoist"] += 1
 
-        players.append({
-            "id": i,
-            "type": t,
-            "choice": choice
-        })
+    pid = 0
+    for t in TYPE_LIST:
+        for _ in range(counts[t]):
+            population.append({
+                "id": pid,
+                "type": t,
+                "payoff": 0,
+            })
+            pid += 1
 
-    return players
+    random.shuffle(population)
+    return population
 
+# --------------------------------------------------------------------
+# BASIC GAME: payoff calculation
+# --------------------------------------------------------------------
+def compute_basic_payoff(group, target_player):
+    """
+    group: list of 10 players including target_player
+    Returns payoff for target_player under BASIC rules.
+    """
+    give_amount = TYPE_TO_GIVE[target_player["type"]]
+    keep_amount = 10 - give_amount
 
-# --- BASIC PUBLIC GOODS GAME ------------------------------------------------
+    total_contributions = sum(TYPE_TO_GIVE[p["type"]] for p in group)
+    pot = total_contributions * 5
+    share = pot / 10
 
-def simulate_basic(players):
-    """Simulate BASIC PS115D public goods game."""
-    n = len(players)
-    results = {}
+    return keep_amount + share
 
-    for p in players:
-        # Build group of size 10: p + 9 random others
-        others = random.sample([x for x in players if x["id"] != p["id"]], 9)
-        group = [p] + others
+# --------------------------------------------------------------------
+# COMPETITIVE GAME: jets vs sharks
+# --------------------------------------------------------------------
+def compute_competitive_payoff(group_A, group_B, target_player):
+    """
+    group_A: player's own group (10 players)
+    group_B: opponent group (10 players)
+    """
+    give_amount = TYPE_TO_GIVE[target_player["type"]]
+    keep_amount = 10 - give_amount
 
-        pot = sum(member["choice"] for member in group) * 5
-        keep = 10 - p["choice"]
+    contrib_A = sum(TYPE_TO_GIVE[p["type"]] for p in group_A) * 5
+    contrib_B = sum(TYPE_TO_GIVE[p["type"]] for p in group_B) * 5
 
-        results[p["id"]] = keep + pot / 10
-
-    return results
-
-
-# --- COMPETITIVE PUBLIC GOODS GAME -----------------------------------------
-
-def simulate_competitive(players):
-    """Simulate COMPETITIVE PS115D game with round-robin groups."""
-    n = len(players)
-    groups = []
-    results = {}
-
-    # Precompute groups of size 10
-    for i in range(n):
-        group = [players[(i + k) % n] for k in range(10)]
-        pot = sum(m["choice"] for m in group) * 5
-        groups.append((group, pot))
-
-    # Pay each player
-    for i, p in enumerate(players):
-        group_i, pot_i = groups[i]
-        group_j, pot_j = groups[(i + 1) % n]
-
-        keep = 10 - p["choice"]
-
-        if pot_i > pot_j:
-            payoff = keep + (pot_i / 10) + (pot_j / 10)
-        else:
-            payoff = keep
-
-        results[p["id"]] = payoff
-
-    return results
-
-
-# --- EVOLUTION MECHANISM ----------------------------------------------------
-
-def evolve(players, results):
-    """Players die w/ probability and are replaced by opposite."""
-    for p in players:
-        payoff = results[p["id"]]
-        survival_prob = payoff / 55  # normalize to [0,1]
-
-        if random.random() > survival_prob:
-            # death → replacement
-            if p["type"] == "altruist":
-                p["type"] = "egoist"
-                p["choice"] = 0
-
-            elif p["type"] == "egoist":
-                p["type"] = "altruist"
-                p["choice"] = 10
-
-            else:  # halfway house
-                if random.random() < 0.5:
-                    p["type"] = "altruist"
-                    p["choice"] = 10
-                else:
-                    p["type"] = "egoist"
-                    p["choice"] = 0
-
-    return players
-
-
-# --- MAIN SIMULATION STEP ---------------------------------------------------
-
-def run_ps115d_round(players, game_type):
-    """Runs one full PS115D evolutionary step."""
-    if game_type == "BASIC":
-        results = simulate_basic(players)
-    elif game_type == "COMPETITIVE":
-        results = simulate_competitive(players)
+    if contrib_A > contrib_B:
+        # Winning group: own pot share + losing pot share
+        return keep_amount + (contrib_A / 10) + (contrib_B / 10)
     else:
-        raise ValueError("Invalid PS115D game type")
+        # Losing group: only keep amount
+        return keep_amount
 
-    evolved = evolve(players, results)
+# --------------------------------------------------------------------
+# EVOLUTIONARY STEP
+# --------------------------------------------------------------------
+def evolutionary_update(population):
+    """
+    Players survive probabilistically based on payoff. 
+    Dying players are replaced by opposite type (halfway random).
+    """
+    new_population = []
 
-    # Statistics
-    altruist_mean = sum(results[p["id"]] for p in evolved if p["type"] == "altruist")
-    egoist_mean = sum(results[p["id"]] for p in evolved if p["type"] == "egoist")
-    halfway_mean = sum(results[p["id"]] for p in evolved if p["type"] == "halfway")
+    for p in population:
+        survival_prob = p["payoff"] / MAX_PAYOFF
+        survive = random.random() < survival_prob
 
-    # Avoid div0
-    numA = len([p for p in evolved if p["type"] == "altruist"])
-    numE = len([p for p in evolved if p["type"] == "egoist"])
-    numH = len([p for p in evolved if p["type"] == "halfway"])
+        if survive:
+            new_population.append({**p, "payoff": 0})
+        else:
+            if p["type"] == "altruist":
+                new_type = "egoist"
+            elif p["type"] == "egoist":
+                new_type = "altruist"
+            else:  # halfway
+                new_type = random.choice(["altruist", "egoist"])
 
-    return {
-        "results": results,
-        "players": evolved,
-        "altruist_mean": altruist_mean / numA if numA else 0,
-        "egoist_mean": egoist_mean / numE if numE else 0,
-        "halfway_mean": halfway_mean / numH if numH else 0,
+            new_population.append({
+                "id": p["id"],
+                "type": new_type,
+                "payoff": 0,
+            })
+
+    return new_population
+
+# --------------------------------------------------------------------
+# MAIN SIMULATION ROUND
+# --------------------------------------------------------------------
+def simulate_round_ps115d(population, mode="BASIC"):
+    """
+    mode = "BASIC" or "COMPETITIVE"
+    Returns updated population + summary statistics.
+    """
+    n = len(population)
+    for p in population:
+        p["payoff"] = 0
+
+    if mode == "BASIC":
+        for i, p in enumerate(population):
+            # group of 10 = p + 9 random others
+            others = [x for j, x in enumerate(population) if j != i]
+            group = random.sample(others, 9) + [p]
+            p["payoff"] = compute_basic_payoff(group, p)
+
+    else:  # COMPETITIVE
+        for i, p in enumerate(population):
+            # Own group
+            others_A = [x for j, x in enumerate(population) if j != i]
+            group_A = random.sample(others_A, 9) + [p]
+
+            # Opponent group: next player round-robin
+            opponent_index = (i + 1) % n
+            opponent = population[opponent_index]
+            others_B = [x for j, x in enumerate(population) if j != opponent_index]
+            group_B = random.sample(others_B, 9) + [opponent]
+
+            p["payoff"] = compute_competitive_payoff(group_A, group_B, p)
+
+    # Evolutionary update
+    new_pop = evolutionary_update(population)
+
+    # Summary statistics
+    counts_dict = {t: 0 for t in TYPE_LIST}
+    for p in new_pop:
+        counts_dict[p["type"]] += 1
+
+    total = len(new_pop)
+    summary = {
+        "nC": counts_dict["altruist"],
+        "nD": counts_dict["egoist"],
+        "nH": counts_dict["halfway"],
+        "propC": counts_dict["altruist"] / total,
+        "propD": counts_dict["egoist"] / total,
+        "propH": counts_dict["halfway"] / total,
     }
+
+    return new_pop, summary
+
+# --------------------------------------------------------------------
+# Example usage
+# --------------------------------------------------------------------
+if __name__ == "__main__":
+    pop = create_population()
+    for t in range(10):
+        pop, stats = simulate_round_ps115d(pop, mode="BASIC")
+        print(f"Round {t+1} BASIC:", stats)
+
+    pop = create_population()
+    for t in range(10):
+        pop, stats = simulate_round_ps115d(pop, mode="COMPETITIVE")
+        print(f"Round {t+1} COMPETITIVE:", stats)

@@ -1,61 +1,55 @@
 import "../styles/CustomPayoffForm.css";
 
 function CustomPayoffForm({ settings, setSettings }) {
-  const { customPayoff } = settings;
-
-  const handleChange = (field, value) => {
+  const handlePayoffChange = (interaction, index, value) => {
     setSettings((prev) => ({
       ...prev,
-      customPayoff: { ...prev.customPayoff, [field]: value },
+      customPayoff: {
+        ...prev.customPayoff,
+        [interaction]: prev.customPayoff[interaction].map((v, i) =>
+          i === index ? Number(value) : v
+        ),
+      },
     }));
   };
 
   return (
-    <fieldset className="custom-payoff-form">
-      <legend>Custom Payoff Matrix</legend>
+    <div className="custom-payoff-form">
+      <h3>Custom Payoff Matrix</h3>
 
-      <div className="payoff-grid">
-        <div></div>
-        <strong>Altruist (C)</strong>
-        <strong>Egoist (D)</strong>
+      <table className="payoff-table">
+        <thead>
+          <tr>
+            <th>Interaction</th>
+            <th>Self</th>
+            <th>Other</th>
+          </tr>
+        </thead>
 
-        <div>Altruist (C) vs Altruist (C)</div>
-        <input
-          type="number"
-          value={customPayoff.CC_self || ""}
-          onChange={(e) => handleChange("CC_self", e.target.value)}
-        />
-        <input
-          type="number"
-          value={customPayoff.CC_other || ""}
-          onChange={(e) => handleChange("CC_other", e.target.value)}
-        />
+        <tbody>
+          {["CC", "CD", "DD"].map((key) => (
+            <tr key={key}>
+              <td>{key}</td>
+              <td>
+                <input
+                  type="number"
+                  value={settings.customPayoff[key][0]}
+                  onChange={(e) => handlePayoffChange(key, 0, e.target.value)}
+                />
+              </td>
 
-        <div>Altruist (C) vs Egoist (D)</div>
-        <input
-          type="number"
-          value={customPayoff.CD_self || ""}
-          onChange={(e) => handleChange("CD_self", e.target.value)}
-        />
-        <input
-          type="number"
-          value={customPayoff.CD_other || ""}
-          onChange={(e) => handleChange("CD_other", e.target.value)}
-        />
-
-        <div>Egoist (D) vs Egoist (D)</div>
-        <input
-          type="number"
-          value={customPayoff.DD_self || ""}
-          onChange={(e) => handleChange("DD_self", e.target.value)}
-        />
-        <input
-          type="number"
-          value={customPayoff.DD_other || ""}
-          onChange={(e) => handleChange("DD_other", e.target.value)}
-        />
-      </div>
-    </fieldset>
+              <td>
+                <input
+                  type="number"
+                  value={settings.customPayoff[key][1]}
+                  onChange={(e) => handlePayoffChange(key, 1, e.target.value)}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
