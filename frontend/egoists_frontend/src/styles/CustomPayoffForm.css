@@ -1,0 +1,39 @@
+/* src/styles/customPayoff.css (replace/create) */
+
+.custom-payoff-form {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.custom-payoff-form legend {
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+/* grid: label | self | other */
+.payoff-grid {
+  display: grid;
+  grid-template-columns: 1fr 120px 120px;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.payoff-grid .label {
+  text-align: left;
+  padding-right: 0.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.payoff-grid input {
+  width: 100%;
+  padding: 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+}
